@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team Profile – Sportylytics</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/utils.js"></script>
+  <script src="/static/js/render.js" defer></script>
+</head>
+<body id="app-body">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content" id="main-content">
+    <header class="top-header" id="top-header"></header>
+    <main id="content-area">
+        <div class="loading-spinner">Loading team profile...</div>
+    </main>
+    <footer id="footer"></footer>
+  </div>
+  <script src="/static/js/main.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const config = await getSiteConfig();
+        if (config) {
+            renderCommon(config);
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+            if (id) await renderTeam(id);
+        }
+    });
+  </script>
+</body>
+</html>

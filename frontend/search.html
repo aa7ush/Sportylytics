@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search – Sportylytics</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/utils.js"></script>
+  <script src="/static/js/render.js" defer></script>
+</head>
+<body id="app-body">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-content" id="main-content">
+    <header class="top-header" id="top-header"></header>
+    <main id="content-area">
+        <div class="page-content">
+            <h2 id="search-title">Search Results</h2>
+            <div id="search-results" class="section-grid">
+                <div class="loading-spinner">Searching...</div>
+            </div>
+        </div>
+    </main>
+    <footer id="footer"></footer>
+  </div>
+  <script src="/static/js/main.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const config = await getSiteConfig();
+        if (config) {
+            renderCommon(config);
+            const params = new URLSearchParams(window.location.search);
+            const q = params.get('q');
+            if (q) await renderSearch(q);
+            else {
+                document.getElementById('search-results').innerHTML = '<div class="empty-state">Enter a query to search</div>';
+            }
+        }
+    });
+  </script>
+</body>
+</html>
