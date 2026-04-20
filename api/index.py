@@ -21,8 +21,8 @@ def parse_pins_cookie(cookie_name: str) -> list:
     except Exception:
         return []
 
-import api.config as config
-from api.config import LEAGUES, team_image_url, league_image_url, STATUS_LABELS
+import config
+from config import LEAGUES, team_image_url, league_image_url, STATUS_LABELS
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
