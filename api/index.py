@@ -7,9 +7,16 @@ import asyncio
 from flask import Flask, render_template, abort, request, Response, jsonify, Blueprint
 from flask_cors import CORS
 from markupsafe import Markup
-from curl_cffi import requests as curl_requests
-from tmkt import TMKT
+import requests
 import io
+
+# Fallback for curl_cffi in environments where it fails to load
+try:
+    from curl_cffi import requests as curl_requests
+    USE_CURL_CFFI = True
+except ImportError:
+    curl_requests = requests
+    USE_CURL_CFFI = False
 
 def parse_pins_cookie(cookie_name: str) -> list:
     c = request.cookies.get(cookie_name)
@@ -23,6 +30,7 @@ def parse_pins_cookie(cookie_name: str) -> list:
 
 import config
 from config import LEAGUES, team_image_url, league_image_url, STATUS_LABELS
+from tmkt import TMKT
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
@@ -45,7 +53,11 @@ def fetch_json(endpoint: str):
         "Accept-Language": "en-US,en;q=0.9"
     }
     try:
-        r = curl_requests.get(url, impersonate="chrome120", headers=headers, timeout=15)
+        kwargs = {"headers": headers, "timeout": 15}
+        if USE_CURL_CFFI:
+            kwargs["impersonate"] = "chrome120"
+        
+        r = curl_requests.get(url, **kwargs)
         if r.status_code == 200:
             return r.json()
         sys.stderr.write(f"HTTP {r.status_code}: {url}\n")
@@ -170,7 +182,11 @@ def proxy_image():
     }
 
     try:
-        r = curl_requests.get(target_url, impersonate="chrome120", headers=headers, timeout=10)
+        kwargs = {"headers": headers, "timeout": 10}
+        if USE_CURL_CFFI:
+            kwargs["impersonate"] = "chrome120"
+            
+        r = curl_requests.get(target_url, **kwargs)
         if r.status_code == 200:
             content_type = r.headers.get("Content-Type", "image/png")
             _img_cache[target_url] = {"data": r.content, "type": content_type}
@@ -456,7 +472,11 @@ def _get_historical_career_stats(player_id: int, national_team_id: int = None):
 async def fetch_json_async(session, endpoint: str):
     url = f"https://www.sofascore.com/api/v1{endpoint}"
     try:
-        r = await session.get(url, impersonate="chrome120", timeout=10)
+        kwargs = {"timeout": 10}
+        if USE_CURL_CFFI:
+            kwargs["impersonate"] = "chrome120"
+            
+        r = await session.get(url, **kwargs)
         if r.status_code == 200:
             return r.json()
     except Exception as e:
