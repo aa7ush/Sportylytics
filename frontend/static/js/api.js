@@ -5,7 +5,7 @@
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5000'
-    : 'https://your-backend-on-render.com'; // REPLACE WITH YOUR RENDER URL
+    : 'https://sportylytics-api.onrender.com'; // TODO: Update this with your actual Render URL after deployment
 
 async function fetchData(endpoint) {
     try {
