@@ -21,6 +21,6 @@ let siteConfig = null;
 
 async function getSiteConfig() {
     if (siteConfig) return siteConfig;
-    siteConfig = await fetchData('/api/init');
+    siteConfig = await fetchData('/init');
     return siteConfig;
 }

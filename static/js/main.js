@@ -11,6 +11,7 @@ const toggleBtn    = document.getElementById('sidebar-toggle-btn');
 let sidebarCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
 
 function applySidebarState() {
+  if (!sidebar || !mainContent || !toggleBtn) return;
   if (sidebarCollapsed) {
     sidebar.classList.add('collapsed');
     mainContent.classList.add('sidebar-collapsed');
