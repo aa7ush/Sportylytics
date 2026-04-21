@@ -6,4 +6,5 @@ curl_cffi==0.15.0
 pandas
 flask-cors
 gunicorn
-tmkt
+aiohttp
+markupsafe
