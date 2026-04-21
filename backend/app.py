@@ -36,7 +36,8 @@ app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 CORS(app)
 
-BASE_URL = "https://www.sofascore.com/api/v1"
+BASE_URL = "https://api.sofascore.app/api/v1"
+sys.stderr.write(f"STARTUP: USE_CURL_CFFI={USE_CURL_CFFI}\n")
 
 # ── HTTP fetch ────────────────────────────────────────────────────────────────
 
@@ -44,10 +45,15 @@ def fetch_json(endpoint: str):
     url = f"{BASE_URL}{endpoint}" if endpoint.startswith("/") else f"{BASE_URL}/{endpoint}"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "*/*",
+        "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": "https://www.sofascore.com/",
-        "Origin": "https://www.sofascore.com"
+        "Origin": "https://www.sofascore.com",
+        "Host": "api.sofascore.app",
+        "Connection": "keep-alive",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "cross-site"
     }
     
     sys.stderr.write(f"FETCH: {url}\n")
@@ -59,15 +65,19 @@ def fetch_json(endpoint: str):
         
         r = curl_requests.get(url, **kwargs)
         if r.status_code == 200:
-            data = r.json()
-            event_count = len(data.get("events", [])) if isinstance(data, dict) else "N/A"
-            sys.stderr.write(f"SUCCESS: {url} (Count: {event_count})\n")
-            return data
+            try:
+                data = r.json()
+                event_count = len(data.get("events", [])) if isinstance(data, dict) else "N/A"
+                sys.stderr.write(f"SUCCESS: {url} (Count: {event_count})\n")
+                return data
+            except Exception as json_err:
+                sys.stderr.write(f"JSON DECODE ERROR: {url} - {json_err}\n")
+                sys.stderr.write(f"BODY SNIPPET: {r.text[:500]}\n")
+                return None
         
         sys.stderr.write(f"HTTP ERROR {r.status_code}: {url}\n")
-        # Log a snippet of the error page if it's not JSON
         if r.status_code != 200:
-            sys.stderr.write(f"RESPONSE PREVIEW: {r.text[:200]}\n")
+            sys.stderr.write(f"RESPONSE PREVIEW: {r.text[:500]}\n")
         return None
     except Exception as e:
         sys.stderr.write(f"CRITICAL FETCH ERROR {e}: {url}\n")
@@ -477,7 +487,7 @@ def _get_historical_career_stats(player_id: int, national_team_id: int = None):
         return []
 
 async def fetch_json_async(session, endpoint: str):
-    url = f"https://www.sofascore.com/api/v1{endpoint}"
+    url = f"{BASE_URL}{endpoint}" if endpoint.startswith("/") else f"{BASE_URL}/{endpoint}"
     try:
         kwargs = {"timeout": 10}
         if USE_CURL_CFFI:
@@ -491,6 +501,15 @@ async def fetch_json_async(session, endpoint: str):
     return None
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+from flask import redirect, url_for
+
+@app.route("/")
+def index_redirect():
+    return redirect(url_for('matches_route'))
+
+@app.route("/health")
+def health_check():
+    return jsonify({"status": "ok", "curl_cffi": USE_CURL_CFFI})
 
 @app.route("/matches")
 def matches_route():
