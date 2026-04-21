@@ -479,8 +479,8 @@ async def fetch_json_async(session, endpoint: str):
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-@app.route("/")
-def index():
+@app.route("/matches")
+def matches_route():
     date = request.args.get("date", datetime.datetime.utcnow().strftime("%Y-%m-%d"))
     raw = cached_fetch(f"today:{date}", 60, f"/sport/football/scheduled-events/{date}")
     events = (raw.get("events") or []) if raw else []
@@ -511,7 +511,8 @@ def index():
     return jsonify({
         "grouped_matches": grouped,
         "pinned_matches": pinned_grouped,
-        "selected_date": date
+        "selected_date": date,
+        "events": events
     })
 
 

@@ -66,7 +66,7 @@ function renderCommon(config) {
 // ── Index Page ──────────────────────────────────────────────────────────────
 
 async function renderIndex(date) {
-    const data = await fetchData(`/?date=${date}`);
+    const data = await fetchData(`/matches?date=${date}`);
     const container = document.getElementById('matches-container');
     if (!data || !container) return;
 

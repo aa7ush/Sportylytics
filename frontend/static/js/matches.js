@@ -16,7 +16,7 @@ function startLivePolling(currentDate) {
 
   setInterval(() => {
     const date = currentDate || new Date().toISOString().slice(0, 10);
-    fetch(`/api/matches/today?date=${date}`)
+    fetch(`/api/matches?date=${date}`)
       .then(r => r.json())
       .then(data => {
         const events = data.events || [];
