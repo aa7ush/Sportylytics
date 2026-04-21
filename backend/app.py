@@ -4,55 +4,37 @@ import sys
 import json
 import urllib.parse
 import asyncio
-import traceback
-import os
+from flask import Flask, render_template, abort, request, Response, jsonify, Blueprint
+from flask_cors import CORS
+from markupsafe import Markup
+import requests
+import io
 
-# DIAGNOSTIC LOGGING
-print(">>> BACKEND STARTING UP...")
-print(f">>> CURRENT DIRECTORY: {os.getcwd()}")
-print(f">>> DIRECTORY CONTENTS: {os.listdir('.')}")
-
+# Fallback for curl_cffi in environments where it fails to load
 try:
-    from flask import Flask, render_template, abort, request, Response, jsonify, Blueprint
-    from flask_cors import CORS
-    from markupsafe import Markup
-    import requests
-    import io
+    from curl_cffi import requests as curl_requests
+    USE_CURL_CFFI = True
+except ImportError:
+    curl_requests = requests
+    USE_CURL_CFFI = False
 
-    # Fallback for curl_cffi in environments where it fails to load
+def parse_pins_cookie(cookie_name: str) -> list:
+    c = request.cookies.get(cookie_name)
+    if not c:
+        return []
     try:
-        from curl_cffi import requests as curl_requests
-        USE_CURL_CFFI = True
-        print(">>> curl_cffi loaded successfully")
-    except Exception as e:
-        print(f">>> curl_cffi failed to load (falling back to requests): {e}")
-        curl_requests = requests
-        USE_CURL_CFFI = False
+        val = urllib.parse.unquote(c)
+        return json.loads(val)
+    except Exception:
+        return []
 
-    def parse_pins_cookie(cookie_name: str) -> list:
-        c = request.cookies.get(cookie_name)
-        if not c:
-            return []
-        try:
-            val = urllib.parse.unquote(c)
-            return json.loads(val)
-        except Exception:
-            return []
+import config
+from config import LEAGUES, team_image_url, league_image_url, STATUS_LABELS
+from tmkt import TMKT
 
-    import config
-    from config import LEAGUES, team_image_url, league_image_url, STATUS_LABELS
-    from tmkt import TMKT
-    print(">>> All local modules loaded successfully")
-
-    app = Flask(__name__)
-    app.secret_key = config.SECRET_KEY
-    CORS(app)
-    print(">>> Flask app initialized")
-
-except Exception as e:
-    print("!!! FATAL ERROR DURING STARTUP !!!")
-    traceback.print_exc()
-    sys.exit(1)
+app = Flask(__name__)
+app.secret_key = config.SECRET_KEY
+CORS(app)
 
 BASE_URL = "https://www.sofascore.com/api/v1"
 
