@@ -20,6 +20,8 @@ except ImportError:
     curl_requests = requests
     USE_CURL_CFFI = False
 
+VERSION = "1.0.8-scraper-force"
+
 async def get_session():
     global _SHARED_SESSION
     if _SHARED_SESSION is None:
@@ -623,7 +625,7 @@ def index_redirect():
 
 @app.route("/health")
 def health_check():
-    return jsonify({"status": "ok", "curl_cffi": USE_CURL_CFFI, "diagnostics": DIAGNOSTICS})
+    return jsonify({"status": "ok", "version": VERSION, "curl_cffi": USE_CURL_CFFI, "diagnostics": DIAGNOSTICS})
 
 @app.route("/debug/logs")
 def debug_logs():
@@ -634,9 +636,9 @@ def matches_route():
     date = request.args.get("date", datetime.datetime.utcnow().strftime("%Y-%m-%d"))
     raw = cached_fetch(f"today:{date}", 60, f"/sport/football/scheduled-events/{date}")
     
-    # Fallback to scraping today's home page if API fails and date is today
-    if (not raw or not raw.get("events")) and date == datetime.datetime.utcnow().strftime("%Y-%m-%d"):
-        sys.stderr.write("API FAILED. ATTEMPTING SCRAPER FALLBACK...\n")
+    # Fallback to scraping today's home page if API fails
+    if (not raw or not raw.get("events")):
+        sys.stderr.write("API FAILED or EMPTY. ATTEMPTING SCRAPER FALLBACK...\n")
         raw = scrape_home_matches()
         if raw:
             # Cache it so we don't scrape every time
