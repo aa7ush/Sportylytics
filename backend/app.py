@@ -20,7 +20,7 @@ except ImportError:
     curl_requests = requests
     USE_CURL_CFFI = False
 
-VERSION = "1.0.9-deep-search"
+VERSION = "1.1.0-ultra-deep-search"
 
 async def get_session():
     global _SHARED_SESSION
@@ -157,17 +157,22 @@ def scrape_home_matches():
             if script:
                 data = json.loads(script.string)
                 
-                def deep_find_events(obj):
+                def deep_find_matches(obj, depth=0):
+                    if depth > 20: return None
                     if isinstance(obj, dict):
-                        if 'events' in obj and isinstance(obj['events'], list) and len(obj['events']) > 10:
-                            return obj['events']
                         for k, v in obj.items():
-                            if k in ['initialProps', 'initialState', 'pageProps', 'initialDateEvents']:
-                                res = deep_find_events(v)
-                                if res: return res
+                            res = deep_find_matches(v, depth + 1)
+                            if res: return res
+                    elif isinstance(obj, list):
+                        # Characteristics of a matches list: length > 5, first item has homeTeam
+                        if len(obj) > 5 and isinstance(obj[0], dict) and 'homeTeam' in obj[0]:
+                            return obj
+                        for item in obj:
+                            res = deep_find_matches(item, depth + 1)
+                            if res: return res
                     return None
 
-                events = deep_find_events(data)
+                events = deep_find_matches(data)
                 avail_keys = list(data.get('props', {}).get('pageProps', {}).keys())
                 
                 DIAGNOSTICS.append({
