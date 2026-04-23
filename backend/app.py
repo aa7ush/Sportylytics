@@ -154,15 +154,46 @@ def scrape_home_matches():
             script = soup.find('script', id='__NEXT_DATA__')
             if script:
                 data = json.loads(script.string)
-                # Next.js SofaScore structure: props.pageProps.initialDateEvents.events
-                events = data.get('props', {}).get('pageProps', {}).get('initialDateEvents', {}).get('events', [])
+                pageProps = data.get('props', {}).get('pageProps', {})
+                avail_keys = list(pageProps.keys())
+                
+                # Try multiple paths
+                events = (pageProps.get('initialDateEvents') or {}).get('events', [])
                 if not events:
-                    # Alternative path
-                    events = data.get('props', {}).get('pageProps', {}).get('events', [])
-                sys.stderr.write(f"SCRAPE SUCCESS: Found {len(events)} events\n")
+                    events = pageProps.get('events', [])
+                if not events:
+                    events = (pageProps.get('initialSelection') or {}).get('events', [])
+                
+                DIAGNOSTICS.append({
+                    "time": datetime.datetime.utcnow().isoformat(),
+                    "scrape_step": "DATA_PARSED",
+                    "found_events": bool(events),
+                    "count": len(events),
+                    "pageProps_keys": avail_keys[:15]
+                })
+                
+                sys.stderr.write(f"SCRAPE SUCCESS: Found {len(events)} events. Keys: {avail_keys}\n")
                 return {"events": events}
-        sys.stderr.write(f"SCRAPE FAIL: Status {r.status_code}\n")
+            else:
+                DIAGNOSTICS.append({
+                    "time": datetime.datetime.utcnow().isoformat(),
+                    "scrape_step": "NO_SCRIPT_TAG",
+                    "html_length": len(r.text)
+                })
+                sys.stderr.write("SCRAPE FAIL: __NEXT_DATA__ script not found\n")
+        else:
+            DIAGNOSTICS.append({
+                "time": datetime.datetime.utcnow().isoformat(),
+                "scrape_step": f"HTTP_{r.status_code}",
+                "html_snippet": r.text[:100]
+            })
+            sys.stderr.write(f"SCRAPE FAIL: Status {r.status_code}\n")
     except Exception as e:
+        DIAGNOSTICS.append({
+            "time": datetime.datetime.utcnow().isoformat(),
+            "scrape_step": "EXCEPTION",
+            "error": str(e)
+        })
         sys.stderr.write(f"SCRAPE ERROR: {e}\n")
     return None
 
