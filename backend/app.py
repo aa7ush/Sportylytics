@@ -20,7 +20,7 @@ except ImportError:
     curl_requests = requests
     USE_CURL_CFFI = False
 
-VERSION = "1.1.8-script-dump"
+VERSION = "1.1.9-proxy-impersonate"
 
 async def get_session():
     global _SHARED_SESSION
@@ -675,8 +675,15 @@ def debug_raw_html():
 
 def _proxy_image_internal(url):
     try:
+        global _SHARED_SESSION
+        if _SHARED_SESSION is None:
+            if USE_CURL_CFFI:
+                _SHARED_SESSION = curl_requests.Session(impersonate="chrome120")
+            else:
+                _SHARED_SESSION = requests.Session()
+        
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-        r = requests.get(url, headers=headers, timeout=10)
+        r = _SHARED_SESSION.get(url, headers=headers, timeout=10)
         return Response(r.content, mimetype=r.headers.get('Content-Type') or 'image/png')
     except Exception as e:
         return str(e), 500
