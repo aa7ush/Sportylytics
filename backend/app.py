@@ -78,8 +78,17 @@ def fetch_json(endpoint: str):
             else:
                 _SHARED_SESSION = requests.Session()
             # Initial hit to home page
-            try: _SHARED_SESSION.get("https://www.sofascore.com/", timeout=10)
-            except: pass
+            try:
+                h = _SHARED_SESSION.get("https://www.sofascore.com/", timeout=10)
+                DIAGNOSTICS.append({
+                    "time": datetime.datetime.utcnow().isoformat(),
+                    "url": "https://www.sofascore.com/",
+                    "status": h.status_code,
+                    "length": len(h.text),
+                    "snippet": h.text[:100]
+                })
+            except Exception as e:
+                DIAGNOSTICS.append({"error": f"Home Page Error: {e}"})
         
         session = _SHARED_SESSION
 
