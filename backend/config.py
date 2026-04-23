@@ -22,7 +22,7 @@ LEAGUES = {
 }
 
 # Image helpers – Sofascore CDN (no auth required)
-SOFASCORE_IMG = "https://api.sofascore.com/api/v1"
+SOFASCORE_IMG = "https://www.sofascore.com/api/v1"
 
 def team_image_url(team_id: int) -> str:
     return f"{SOFASCORE_IMG}/team/{team_id}/image"

@@ -20,7 +20,7 @@ except ImportError:
     curl_requests = requests
     USE_CURL_CFFI = False
 
-VERSION = "1.1.9-proxy-impersonate"
+VERSION = "1.2.0-main-domain"
 
 async def get_session():
     global _SHARED_SESSION
@@ -54,7 +54,8 @@ app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 CORS(app)
 
-BASE_URL = "https://api.sofascore.com/api/v1"
+BASE_URL = "https://www.sofascore.com/api/v1"
+SOFASCORE_IMG = "https://www.sofascore.com/api/v1"
 sys.stderr.write(f"STARTUP: USE_CURL_CFFI={USE_CURL_CFFI}\n")
 
 # ── HTTP fetch ────────────────────────────────────────────────────────────────
@@ -165,16 +166,25 @@ def scrape_home_matches():
                 data = json.loads(script_content)
                 
                 def deep_find_matches(obj, depth=0):
-                    if depth > 30: return None
+                    if depth > 35: return None
                     if isinstance(obj, dict):
-                        # Try finding a list with 'homeTeam' in any key
+                        # SofaScore home page data structure often puts events in initialState.events.dateEvents[date].events
+                        # or sometimes just in a list called 'events'
+                        if 'events' in obj and isinstance(obj['events'], list) and len(obj['events']) > 1:
+                            # Verify if it's the right list
+                            if 'homeTeam' in obj['events'][0]:
+                                return obj['events']
+                        
+                        # Look for eventList context
+                        if obj.get('listType') == 'eventList':
+                            # Maybe it's a sibling?
+                            pass
+
                         for k, v in obj.items():
-                            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict) and 'homeTeam' in v[0]:
-                                return v
                             res = deep_find_matches(v, depth + 1)
                             if res: return res
                     elif isinstance(obj, list):
-                        if len(obj) > 0 and isinstance(obj[0], dict) and 'homeTeam' in obj[0]:
+                        if len(obj) > 1 and isinstance(obj[0], dict) and 'homeTeam' in obj[0]:
                             return obj
                         for item in obj:
                             res = deep_find_matches(item, depth + 1)
