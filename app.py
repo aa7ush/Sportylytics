@@ -20,7 +20,7 @@ except ImportError:
     curl_requests = requests
     USE_CURL_CFFI = False
 
-VERSION = "1.2.0-main-domain"
+VERSION = "1.2.1-fix-scraper-url"
 
 async def get_session():
     global _SHARED_SESSION
@@ -191,7 +191,34 @@ def scrape_home_matches():
                             if res: return res
                     return None
 
-                events = deep_find_matches(data)
+                # Specific SofaScore paths
+                props = data.get('props', {})
+                page_props = props.get('pageProps', {})
+                
+                # Path 1: props.pageProps.initialState.events.dateEvents[date].events
+                initial_state = page_props.get('initialState', {})
+                if isinstance(initial_state, dict):
+                    events_obj = initial_state.get('events', {})
+                    if isinstance(events_obj, dict):
+                        date_events = events_obj.get('dateEvents', {})
+                        if isinstance(date_events, dict):
+                            for date_key, date_val in date_events.items():
+                                if isinstance(date_val, dict) and 'events' in date_val:
+                                    events = date_val['events']
+                                    if isinstance(events, list) and len(events) > 0:
+                                        sys.stderr.write(f"SCRAPE SUCCESS: Found events in dateEvents[{date_key}]\n")
+                                        break
+                
+                # Path 2: props.pageProps.initialProps.events
+                if not events:
+                    initial_props = page_props.get('initialProps', {})
+                    if isinstance(initial_props, dict) and 'events' in initial_props:
+                        events = initial_props['events']
+
+                # Path 3: Recursive deep search as fallback
+                if not events:
+                    events = deep_find_matches(data)
+
                 avail_keys = list(data.get('props', {}).get('pageProps', {}).keys())
                 
                 DIAGNOSTICS.append({

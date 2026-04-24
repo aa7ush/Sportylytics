@@ -7,7 +7,7 @@
     { "source": "/standings/:id", "destination": "/competition.html?id=:id" },
     { "source": "/search", "destination": "/search.html" },
     { "source": "/match/:id", "destination": "/match.html?id=:id" },
-    { "source": "/api/:path*", "destination": "https://sportylytics-backend.onrender.com/:path*" },
+    { "source": "/api/:path*", "destination": "https://sportylytics.onrender.com/:path*" },
     { "source": "/", "destination": "/index.html" }
   ]
 }
