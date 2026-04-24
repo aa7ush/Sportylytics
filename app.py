@@ -1041,3 +1041,16 @@ import os
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(debug=True, host="0.0.0.0", port=port, use_reloader=False)
+@ a p p . r o u t e ( " / d e b u g / h t m l " )  
+ d e f   d e b u g _ h t m l ( ) :  
+         u r l   =   " h t t p s : / / w w w . s o f a s c o r e . c o m / "  
+         h e a d e r s   =   {  
+                 " U s e r - A g e n t " :   " M o z i l l a / 5 . 0   ( i P h o n e ;   C P U   i P h o n e   O S   1 6 _ 5   l i k e   M a c   O S   X )   A p p l e W e b K i t / 6 0 5 . 1 . 1 5   ( K H T M L ,   l i k e   G e c k o )   V e r s i o n / 1 6 . 5   M o b i l e / 1 5 E 1 4 8   S a f a r i / 6 0 4 . 1 " ,  
+                 " A c c e p t " :   " t e x t / h t m l , a p p l i c a t i o n / x h t m l + x m l , a p p l i c a t i o n / x m l ; q = 0 . 9 , i m a g e / a v i f , i m a g e / w e b p , i m a g e / a p n g , * / * ; q = 0 . 8 " ,  
+         }  
+         t r y :  
+                 r   =   _ S H A R E D _ S E S S I O N . g e t ( u r l ,   h e a d e r s = h e a d e r s ,   t i m e o u t = 1 0 )  
+                 r e t u r n   R e s p o n s e ( r . t e x t ,   m i m e t y p e = " t e x t / h t m l " )  
+         e x c e p t   E x c e p t i o n   a s   e :  
+                 r e t u r n   s t r ( e )  
+ 
