@@ -58,6 +58,10 @@ BASE_URL = "https://www.sofascore.com/api/v1"
 SOFASCORE_IMG = "https://www.sofascore.com/api/v1"
 sys.stderr.write(f"STARTUP: USE_CURL_CFFI={USE_CURL_CFFI}\n")
 
+@app.before_request
+def log_request():
+    sys.stderr.write(f"INCOMING: {request.method} {request.path} {request.args.to_dict()}\n")
+
 # ── HTTP fetch ────────────────────────────────────────────────────────────────
 
 def fetch_json(endpoint: str):
