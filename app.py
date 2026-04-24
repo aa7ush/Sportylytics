@@ -126,6 +126,10 @@ def fetch_json(endpoint: str):
                 return None
         
         sys.stderr.write(f"HTTP ERROR {r.status_code}: {url}\n")
+        if r.status_code == 403 and "scheduled-events" in url:
+            sys.stderr.write("API FAILED or EMPTY. ATTEMPTING SCRAPER FALLBACK...\n")
+            return scrape_home_matches()
+        
         if r.status_code != 200:
             sys.stderr.write(f"RESPONSE PREVIEW: {r.text[:500]}\n")
         return None
@@ -154,100 +158,56 @@ def scrape_home_matches():
         if r.status_code == 200:
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(r.text, 'html.parser')
-            script = soup.find('script', id='__NEXT_DATA__')
-            if script:
+            
+            # Scan ALL script tags for potential match data
+            scripts = soup.find_all('script')
+            for script in scripts:
                 script_content = script.string or ""
-                sys.stderr.write(f"SCRIPT CONTENT (500 chars): {script_content[:500]}\n")
-                DIAGNOSTICS.append({
-                    "time": datetime.datetime.utcnow().isoformat(),
-                    "scrape_step": "SCRIPT_FOUND",
-                    "content_snippet": script_content[:200]
-                })
-                data = json.loads(script_content)
+                if len(script_content) < 1000: continue # Skip small scripts
                 
-                def deep_find_matches(obj, depth=0):
-                    if depth > 40: return None
-                    if isinstance(obj, dict):
-                        # Look for any list that contains event-like objects
-                        for k, v in obj.items():
-                            if isinstance(v, list) and len(v) > 0:
-                                # Check if at least one item looks like an event
-                                first_item = v[0]
-                                if isinstance(first_item, dict) and ('homeTeam' in first_item or 'awayTeam' in first_item):
-                                    return v
+                try:
+                    # Clean up the script content if it's not pure JSON (e.g. window.__INITIAL_STATE__ = ...)
+                    if ' = ' in script_content[:200]:
+                        json_str = script_content.split(' = ', 1)[1].rsplit(';', 1)[0]
+                    else:
+                        json_str = script_content
+                    
+                    data = json.loads(json_str)
+                    
+                    def deep_find_matches(obj, depth=0):
+                        if depth > 45: return None
+                        if isinstance(obj, dict):
+                            # Any dict that looks like an event
+                            if ('homeTeam' in obj or 'home_team' in obj) and ('awayTeam' in obj or 'away_team' in obj):
+                                return [obj]
+                                
+                            for v in obj.values():
+                                res = deep_find_matches(v, depth + 1)
+                                if res: 
+                                    if isinstance(res, list) and len(res) > 0 and isinstance(res[0], dict) and ('homeTeam' in res[0] or 'home_team' in res[0]):
+                                        # If we found a list of events, return it. If we found a single event, keep searching for a list.
+                                        return res
+                        elif isinstance(obj, list):
+                            if len(obj) > 0:
+                                # Check if items in this list look like events
+                                if any(isinstance(item, dict) and ('homeTeam' in item or 'home_team' in item) for item in obj[:10]):
+                                    return [item for item in obj if isinstance(item, dict) and ('homeTeam' in item or 'home_team' in item)]
                             
-                            res = deep_find_matches(v, depth + 1)
-                            if res: return res
-                    elif isinstance(obj, list):
-                        for item in obj:
-                            if isinstance(item, dict) and ('homeTeam' in item or 'awayTeam' in item):
-                                return obj
-                            res = deep_find_matches(item, depth + 1)
-                            if res: return res
-                    return None
+                            for item in obj:
+                                res = deep_find_matches(item, depth + 1)
+                                if res: return res
+                        return None
 
-                events = None
-                # Specific SofaScore paths
-                props = data.get('props', {})
-                page_props = props.get('pageProps', {})
-                
-                # Path 1: props.pageProps.initialState.events.dateEvents[date].events
-                initial_state = page_props.get('initialState', {})
-                if isinstance(initial_state, dict):
-                    events_obj = initial_state.get('events', {})
-                    if isinstance(events_obj, dict):
-                        date_events = events_obj.get('dateEvents', {})
-                        if isinstance(date_events, dict):
-                            for date_key, date_val in date_events.items():
-                                if isinstance(date_val, dict) and 'events' in date_val:
-                                    events = date_val['events']
-                                    if isinstance(events, list) and len(events) > 0:
-                                        sys.stderr.write(f"SCRAPE SUCCESS: Found events in dateEvents[{date_key}]\n")
-                                        break
-                
-                # Path 2: props.pageProps.initialProps.events
-                if not events:
-                    initial_props = page_props.get('initialProps', {})
-                    if isinstance(initial_props, dict) and 'events' in initial_props:
-                        events = initial_props['events']
-
-                # Path 3: Recursive deep search as fallback
-                if not events:
                     events = deep_find_matches(data)
-
-                avail_keys = list(page_props.keys())
-                initial_state_keys = list(initial_state.keys()) if isinstance(initial_state, dict) else []
-                initial_props_keys = list(page_props.get('initialProps', {}).keys()) if isinstance(page_props.get('initialProps'), dict) else []
-                
-                DIAGNOSTICS.append({
-                    "time": datetime.datetime.utcnow().isoformat(),
-                    "scrape_step": "DEEP_SEARCH",
-                    "found_events": bool(events),
-                    "count": len(events) if events else 0,
-                    "pageProps_keys": avail_keys,
-                    "initialState_keys": initial_state_keys,
-                    "initialProps_keys": initial_props_keys
-                })
-                
-                if events:
-                    sys.stderr.write(f"SCRAPE SUCCESS: Found {len(events)} events via deep search.\n")
-                    return {"events": events}
-                
-                sys.stderr.write(f"SCRAPE FAIL: Could not find events in keys {avail_keys}\n")
-            else:
-                DIAGNOSTICS.append({
-                    "time": datetime.datetime.utcnow().isoformat(),
-                    "scrape_step": "NO_SCRIPT_TAG",
-                    "html_length": len(r.text)
-                })
-                sys.stderr.write("SCRAPE FAIL: __NEXT_DATA__ script not found\n")
+                    if events and len(events) > 5:
+                        sys.stderr.write(f"SCRAPE SUCCESS: Found {len(events)} events in a script tag (Length {len(script_content)})\n")
+                        return {"events": events}
+                except:
+                    continue
+            
+            sys.stderr.write("SCRAPE FAIL: No match data found in any script tag.\n")
         else:
-            DIAGNOSTICS.append({
-                "time": datetime.datetime.utcnow().isoformat(),
-                "scrape_step": f"HTTP_{r.status_code}",
-                "html_snippet": r.text[:100]
-            })
-            sys.stderr.write(f"SCRAPE FAIL: Status {r.status_code}\n")
+            sys.stderr.write(f"SCRAPE FAIL: Home Page Status {r.status_code}\n")
     except Exception as e:
         DIAGNOSTICS.append({
             "time": datetime.datetime.utcnow().isoformat(),
