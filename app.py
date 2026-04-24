@@ -166,27 +166,22 @@ def scrape_home_matches():
                 data = json.loads(script_content)
                 
                 def deep_find_matches(obj, depth=0):
-                    if depth > 35: return None
+                    if depth > 40: return None
                     if isinstance(obj, dict):
-                        # SofaScore home page data structure often puts events in initialState.events.dateEvents[date].events
-                        # or sometimes just in a list called 'events'
-                        if 'events' in obj and isinstance(obj['events'], list) and len(obj['events']) > 1:
-                            # Verify if it's the right list
-                            if 'homeTeam' in obj['events'][0]:
-                                return obj['events']
-                        
-                        # Look for eventList context
-                        if obj.get('listType') == 'eventList':
-                            # Maybe it's a sibling?
-                            pass
-
+                        # Look for any list that contains event-like objects
                         for k, v in obj.items():
+                            if isinstance(v, list) and len(v) > 0:
+                                # Check if at least one item looks like an event
+                                first_item = v[0]
+                                if isinstance(first_item, dict) and ('homeTeam' in first_item or 'awayTeam' in first_item):
+                                    return v
+                            
                             res = deep_find_matches(v, depth + 1)
                             if res: return res
                     elif isinstance(obj, list):
-                        if len(obj) > 1 and isinstance(obj[0], dict) and 'homeTeam' in obj[0]:
-                            return obj
                         for item in obj:
+                            if isinstance(item, dict) and ('homeTeam' in item or 'awayTeam' in item):
+                                return obj
                             res = deep_find_matches(item, depth + 1)
                             if res: return res
                     return None
@@ -220,14 +215,18 @@ def scrape_home_matches():
                 if not events:
                     events = deep_find_matches(data)
 
-                avail_keys = list(data.get('props', {}).get('pageProps', {}).keys())
+                avail_keys = list(page_props.keys())
+                initial_state_keys = list(initial_state.keys()) if isinstance(initial_state, dict) else []
+                initial_props_keys = list(page_props.get('initialProps', {}).keys()) if isinstance(page_props.get('initialProps'), dict) else []
                 
                 DIAGNOSTICS.append({
                     "time": datetime.datetime.utcnow().isoformat(),
                     "scrape_step": "DEEP_SEARCH",
                     "found_events": bool(events),
                     "count": len(events) if events else 0,
-                    "pageProps_keys": avail_keys[:10]
+                    "pageProps_keys": avail_keys,
+                    "initialState_keys": initial_state_keys,
+                    "initialProps_keys": initial_props_keys
                 })
                 
                 if events:
